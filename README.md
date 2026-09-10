@@ -1,7 +1,7 @@
-# herdr-statusline
+# fullscreen-aware-herder-statusline
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/license/mit/)
-[![Herdr Plugin](https://img.shields.io/badge/herdr-plugin-orange.svg)](https://github.com/iiii1224/herdr-statusline)
+[![Herdr Plugin](https://img.shields.io/badge/herdr-plugin-orange.svg)](https://github.com/Niko-Sn/fullscreen-aware-herder-statusline)
 [![Platform: Linux/WSL](https://img.shields.io/badge/platform-Linux%20%2F%20WSL-lightgrey.svg)](#requirements)
 
 A tmux-compatible status line for `herdr`—easy to migrate, and even easier to customize with your coding agent.
@@ -30,7 +30,7 @@ fullscreen-sized visibility.
 Install the plugin:
 
 ```sh
-herdr plugin install iiii1224/herdr-statusline
+herdr plugin install Niko-Sn/fullscreen-aware-herder-statusline
 ```
 
 Make sure `~/.local/bin` is in `PATH`, then use `hsl` wherever you would use `herdr`:
