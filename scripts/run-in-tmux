@@ -18,8 +18,11 @@ BASE_CONF=${HSL_TEST_BASE_CONF:-$root/tmux/base.conf}
 # [statusline] section.
 STATUS_OPTIONS=${HSL_STATUS_OPTIONS:-}
 # Set before apply_status_options runs so an absent options file leaves the
-# feature off rather than unset. apply_mouse_clicks reads this.
+# features off rather than unset. The apply_* functions read these.
 MOUSE_CLICKS=false
+FULLSCREEN_MIN_WIDTH=0
+FULLSCREEN_MIN_HEIGHT=0
+STATUS_MODE=on
 # Invoked through `trap` below, which shellcheck cannot follow. The code for
 # this differs by version: 0.11 reports SC2329 on the definition, older
 # releases report SC2317 on every statement in the body. Disable both so the
@@ -239,8 +242,8 @@ apply_status_options() {
         printf '%s\n' 'hsl: invalid hsl-config output' >&2
         return 2
     }
-    # Line 1 is `enabled`, already consumed by bin/hsl-internal; line 2 is
-    # `mouse_clicks`; the count is line 3 and the pairs start at line 4.
+    # Line 1 is `enabled`, already consumed by bin/hsl-internal. Lines 2-4
+    # carry fixed settings; the count is line 5 and option pairs start at 6.
     MOUSE_CLICKS=$(sed -n '2p' "$STATUS_OPTIONS") || {
         printf '%s\n' 'hsl: invalid hsl-config output' >&2
         return 2
@@ -252,7 +255,17 @@ apply_status_options() {
             return 2
             ;;
     esac
-    count=$(sed -n '3p' "$STATUS_OPTIONS") || {
+    FULLSCREEN_MIN_WIDTH=$(sed -n '3p' "$STATUS_OPTIONS") || return 2
+    FULLSCREEN_MIN_HEIGHT=$(sed -n '4p' "$STATUS_OPTIONS") || return 2
+    for threshold in "$FULLSCREEN_MIN_WIDTH" "$FULLSCREEN_MIN_HEIGHT"; do
+        case ${threshold:-x} in
+            ''|*[!0-9]*)
+                printf '%s\n' 'hsl: invalid hsl-config output' >&2
+                return 2
+                ;;
+        esac
+    done
+    count=$(sed -n '5p' "$STATUS_OPTIONS") || {
         printf '%s\n' 'hsl: invalid hsl-config output' >&2
         return 2
     }
@@ -266,16 +279,16 @@ apply_status_options() {
         printf '%s\n' 'hsl: invalid hsl-config output' >&2
         return 2
     }
-    [ "$lines" -eq $((3 + count * 2)) ] || {
+    [ "$lines" -eq $((5 + count * 2)) ] || {
         printf '%s\n' 'hsl: invalid hsl-config output' >&2
         return 2
     }
     index=0
     while [ "$index" -lt "$count" ]; do
-        name=$(sed -n "$((4 + index * 2))p" "$STATUS_OPTIONS") || return 2
+        name=$(sed -n "$((6 + index * 2))p" "$STATUS_OPTIONS") || return 2
         # Command substitution strips the line terminator and nothing else, so
         # a value's leading and trailing spaces survive.
-        value=$(sed -n "$((5 + index * 2))p" "$STATUS_OPTIONS") || return 2
+        value=$(sed -n "$((7 + index * 2))p" "$STATUS_OPTIONS") || return 2
         case $name in
             window-status-*) scope=-gw ;;
             *) scope=-g ;;
@@ -284,8 +297,52 @@ apply_status_options() {
             printf 'hsl: cannot apply statusline option %s: %s\n' "$name" "$failure" >&2
             return 2
         fi
+        if [ "$name" = status ]; then
+            case $value in
+                on|off|2|3|4|5) STATUS_MODE=$value ;;
+            esac
+        fi
         index=$((index + 1))
     done
+}
+
+# tmux cannot see a desktop compositor's fullscreen flag, but its client size
+# is portable. When either threshold is non-zero, treat the terminal as
+# fullscreen only while every enabled axis meets its threshold. Turning the
+# status option off returns the complete row to Herdr.
+apply_fullscreen_visibility() {
+    if [ "$FULLSCREEN_MIN_WIDTH" -eq 0 ] && [ "$FULLSCREEN_MIN_HEIGHT" -eq 0 ]; then
+        return 0
+    fi
+
+    condition="#{&&:#{>=:#{client_width},$FULLSCREEN_MIN_WIDTH},#{>=:#{client_height},$FULLSCREEN_MIN_HEIGHT}}"
+    hook="if-shell -F '$condition' 'set-option -g status $STATUS_MODE' 'set-option -g status off'"
+
+    if ! failure=$("$TMUX_BIN" -L "$socket" set-hook -g client-resized "$hook" 2>&1); then
+        printf 'hsl: cannot install responsive statusline hook: %s\n' "$failure" >&2
+        return 2
+    fi
+    # Preserve base.conf's client-attached hook, which enables teardown after
+    # the initially detached setup phase.
+    if ! failure=$("$TMUX_BIN" -L "$socket" set-hook -ag client-attached "$hook" 2>&1); then
+        printf 'hsl: cannot install responsive statusline hook: %s\n' "$failure" >&2
+        return 2
+    fi
+
+    # Avoid flashing a status row between new-session and the first attach.
+    # The client-attached hook is authoritative when no usable tty size exists.
+    if [ -n "$size" ]; then
+        if { [ "$FULLSCREEN_MIN_WIDTH" -eq 0 ] || [ "$cols" -ge "$FULLSCREEN_MIN_WIDTH" ]; } &&
+           { [ "$FULLSCREEN_MIN_HEIGHT" -eq 0 ] || [ "$rows" -ge "$FULLSCREEN_MIN_HEIGHT" ]; }; then
+            initial_mode=$STATUS_MODE
+        else
+            initial_mode=off
+        fi
+        if ! failure=$("$TMUX_BIN" -L "$socket" set-option -g status "$initial_mode" 2>&1); then
+            printf 'hsl: cannot apply responsive statusline state: %s\n' "$failure" >&2
+            return 2
+        fi
+    fi
 }
 
 # Unlike allow-passthrough below, user ranges cannot be detected by setting
@@ -380,6 +437,10 @@ if ! apply_status_options; then
 fi
 
 if ! apply_mouse_clicks; then
+    exit 2
+fi
+
+if ! apply_fullscreen_visibility; then
     exit 2
 fi
 

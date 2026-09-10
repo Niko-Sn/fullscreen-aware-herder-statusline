@@ -6,6 +6,11 @@
 
 A tmux-compatible status line for `herdr`—easy to migrate, and even easier to customize with your coding agent.
 
+This repository is a fork of
+[`iiii1224/herdr-statusline`](https://github.com/iiii1224/herdr-statusline).
+It preserves the upstream history and adds configurable, resize-aware
+fullscreen-sized visibility.
+
 - **Bring your tmux status line with you.** Reuse familiar tmux formats, styles, and `#(...)` shell segments with minimal migration.
 - **Customize it by describing what you want.** Your coding agent can edit helper scripts and validate the live configuration for you.
 
@@ -76,6 +81,25 @@ Herdr status line.
 ```sh
 herdr plugin config-dir herdr-statusline
 ```
+
+## Fullscreen-sized visibility
+
+The status line can appear only when the terminal reaches configurable width
+and height thresholds. This is a portable approximation of fullscreen: terminal
+programs cannot read a desktop compositor's actual fullscreen state.
+
+Edit `config.toml` in the plugin config directory:
+
+```toml
+[fullscreen]
+min_width = 180
+min_height = 50
+```
+
+Dimensions are terminal cells and update live on resize. A zero disables that
+axis. With both values set, both must be met; with both zero or with the section
+omitted, the status line remains always visible. Hiding it removes the complete
+status row and gives that row back to Herdr.
 
 ## Status Line Buttons
 

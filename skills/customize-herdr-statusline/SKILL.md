@@ -33,10 +33,16 @@ When the request is specific enough to implement, proceed without asking the use
 
 ## Edit the status line
 
-Keep general activation in `enabled` and tmux options under `[statusline]`:
+Keep general activation in `enabled`, optional size-based visibility under
+`[fullscreen]`, and tmux options under `[statusline]`:
 
 ```toml
 enabled = true
+
+# Optional: show only at or above these terminal-cell dimensions.
+[fullscreen]
+min_width = 180
+min_height = 50
 
 [statusline]
 status_interval = 1
@@ -46,6 +52,7 @@ status_right = "..."
 
 Apply these rules:
 
+- `fullscreen.min_width` and `fullscreen.min_height` update visibility live on resize. Zero disables an axis; both configured axes must pass. Omit the section or set both to zero for an always-visible status line. This approximates fullscreen by size because the compositor's fullscreen flag is unavailable.
 - Write tmux option names with underscores. They become hyphens, so `window_status_format` configures `window-status-format`.
 - Set only `status`, `status_*`, and `window_status_*` options. Use strings or integers; spell tmux flags as strings such as `"on"` and `"off"`.
 - Keep every value on one line. Use tmux format and style syntax directly, including `#[fg=#ffffff,bg=#222222]`, `#{pane_title}`, and `#(...)`.

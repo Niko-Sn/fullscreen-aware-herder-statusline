@@ -22,6 +22,16 @@ enabled = true
 #
 #   mouse_clicks = true
 
+# Optionally show the status line only when the terminal is large enough to be
+# treated as fullscreen. Width and height are measured in terminal cells and
+# update live when the window is resized. A zero disables that axis; when both
+# are zero (the default), the status line is always visible. If both are set,
+# both thresholds must be met.
+#
+# [fullscreen]
+# min_width = 180
+# min_height = 50
+
 [statusline]
 status_interval = 1
 status_right = "%m/%d %H:%M:%S"

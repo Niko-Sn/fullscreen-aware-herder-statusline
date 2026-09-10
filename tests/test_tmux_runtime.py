@@ -149,7 +149,15 @@ class TmuxRuntimeTests(unittest.TestCase):
             }
         )
 
-    def run_runtime(self, *args, options=None, mouse=False, **extra_env):
+    def run_runtime(
+        self,
+        *args,
+        options=None,
+        mouse=False,
+        fullscreen_min_width=0,
+        fullscreen_min_height=0,
+        **extra_env,
+    ):
         env = self.env.copy()
         # A None value removes the variable, which no plain update() can do.
         for key, value in extra_env.items():
@@ -160,7 +168,13 @@ class TmuxRuntimeTests(unittest.TestCase):
         if "HSL_STATUS_OPTIONS" not in extra_env:
             pairs = DEFAULT_OPTIONS if options is None else options
             env["HSL_STATUS_OPTIONS"] = str(
-                write_protocol(self.base, pairs, mouse_clicks=mouse)
+                write_protocol(
+                    self.base,
+                    pairs,
+                    mouse_clicks=mouse,
+                    fullscreen_min_width=fullscreen_min_width,
+                    fullscreen_min_height=fullscreen_min_height,
+                )
             )
         return subprocess.run(
             ["sh", str(RUNTIME), *args], cwd=ROOT, env=env, text=True, capture_output=True
@@ -179,7 +193,7 @@ class TmuxRuntimeTests(unittest.TestCase):
 
     def test_rejects_a_protocol_whose_mouse_clicks_line_is_not_boolean(self):
         broken = self.base / "broken-options"
-        broken.write_text("true\nmaybe\n0\n")
+        broken.write_text("true\nmaybe\n0\n0\n0\n")
         result = self.run_runtime("--session", "x", HSL_STATUS_OPTIONS=str(broken))
         self.assertEqual(result.returncode, 2)
         self.assertIn("invalid hsl-config output", result.stderr)
@@ -197,10 +211,51 @@ class TmuxRuntimeTests(unittest.TestCase):
         # The other skew direction: a payload shaped for the old reader must
         # be refused rather than applied one line off.
         skewed = self.base / "skewed-options"
-        skewed.write_text("true\nfalse\n1\nstatus-interval\n3\nstray\n")
+        skewed.write_text("true\nfalse\n0\n0\n1\nstatus-interval\n3\nstray\n")
         result = self.run_runtime("--session", "x", HSL_STATUS_OPTIONS=str(skewed))
         self.assertEqual(result.returncode, 2)
         self.assertIn("invalid hsl-config output", result.stderr)
+
+    def test_rejects_non_numeric_fullscreen_thresholds(self):
+        broken = self.base / "broken-options"
+        broken.write_text("true\nfalse\nwide\n50\n0\n")
+        result = self.run_runtime(HSL_STATUS_OPTIONS=str(broken))
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("invalid hsl-config output", result.stderr)
+
+    def test_installs_resize_hooks_when_thresholds_are_configured(self):
+        result = self.run_runtime(
+            fullscreen_min_width=180,
+            fullscreen_min_height=50,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        hooks = [args for args in self.tmux_argv() if "set-hook" in args]
+        self.assertEqual(len(hooks), 2)
+        resized = next(args for args in hooks if "client-resized" in args)
+        attached = next(args for args in hooks if "client-attached" in args)
+        self.assertIn("-ag", attached)
+        for args in (resized, attached):
+            command = args[-1]
+            self.assertIn("#{client_width},180", command)
+            self.assertIn("#{client_height},50", command)
+            self.assertIn("set-option -g status on", command)
+            self.assertIn("set-option -g status off", command)
+
+    def test_restores_the_configured_multi_line_status_mode(self):
+        result = self.run_runtime(
+            options=[("status", "2")],
+            fullscreen_min_width=180,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        hooks = [args for args in self.tmux_argv() if "set-hook" in args]
+        self.assertTrue(hooks)
+        for args in hooks:
+            self.assertIn("set-option -g status 2", args[-1])
+
+    def test_does_not_install_resize_hooks_when_thresholds_are_zero(self):
+        result = self.run_runtime()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any("set-hook" in args for args in self.tmux_argv()))
 
     def tmux_calls(self):
         return [json.loads(line) for line in self.tmux_log.read_text().splitlines()]
@@ -385,7 +440,7 @@ class TmuxRuntimeTests(unittest.TestCase):
         # Hand-written on purpose: this is a format *violation*, so the real
         # writer cannot produce it. Every valid fixture goes through
         # helpers.write_protocol.
-        options.write_text("true\n2\nstatus-interval\n1\n")
+        options.write_text("true\nfalse\n0\n0\n2\nstatus-interval\n1\n")
         result = self.run_runtime(HSL_STATUS_OPTIONS=str(options))
         self.assertEqual(result.returncode, 2)
         self.assertIn("invalid hsl-config output", result.stderr)

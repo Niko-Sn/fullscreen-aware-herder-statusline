@@ -52,7 +52,14 @@ def ensure_helper():
     return HELPER
 
 
-def write_protocol(base, pairs, enabled=True, mouse_clicks=False):
+def write_protocol(
+    base,
+    pairs,
+    enabled=True,
+    mouse_clicks=False,
+    fullscreen_min_width=0,
+    fullscreen_min_height=0,
+):
     """Write a protocol file by running the shipped writer.
 
     Tests name tmux options with dashes and state values as they should reach
@@ -63,6 +70,9 @@ def write_protocol(base, pairs, enabled=True, mouse_clicks=False):
     lines = [
         f"enabled = {'true' if enabled else 'false'}",
         f"mouse_clicks = {'true' if mouse_clicks else 'false'}",
+        "[fullscreen]",
+        f"min_width = {fullscreen_min_width}",
+        f"min_height = {fullscreen_min_height}",
         "[statusline]",
     ]
     for name, value in pairs:

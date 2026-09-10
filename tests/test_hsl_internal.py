@@ -219,7 +219,7 @@ class InternalLauncherTests(unittest.TestCase):
         self.assertEqual(record["env"]["HERDR_SESSION"], "x")
         self.assertEqual(
             record["options"],
-            "true\nfalse\n2\nstatus-interval\n1\nstatus-right\n%m/%d %H:%M:%S\n",
+            "true\nfalse\n0\n0\n2\nstatus-interval\n1\nstatus-right\n%m/%d %H:%M:%S\n",
         )
 
     def test_herdr_disabled_bypasses_config_and_tmux(self):

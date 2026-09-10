@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-10
+
+### Added
+
+- Optional `[fullscreen]` width and height thresholds that show the status line
+  only when the terminal is large enough.
+- Live status-line visibility updates on terminal resize, with the hidden row
+  returned to Herdr.
+
 ## [0.1.2] - 2026-08-12
 
 ### Added

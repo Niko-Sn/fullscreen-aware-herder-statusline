@@ -15,8 +15,21 @@ struct RawConfig {
     /// asks it for 1000/1002/1003/1006 reporting.
     #[serde(default)]
     mouse_clicks: bool,
+    /// Optional size-based approximation of fullscreen. A zero threshold
+    /// disables that axis; both non-zero thresholds must be met.
+    #[serde(default)]
+    fullscreen: Fullscreen,
     #[serde(default)]
     statusline: Statusline,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Fullscreen {
+    #[serde(default)]
+    min_width: u16,
+    #[serde(default)]
+    min_height: u16,
 }
 
 fn default_enabled() -> bool {
@@ -57,6 +70,8 @@ impl<'de> Deserialize<'de> for Statusline {
 pub struct NormalizedConfig {
     pub enabled: bool,
     pub mouse_clicks: bool,
+    pub fullscreen_min_width: u16,
+    pub fullscreen_min_height: u16,
     /// `(tmux option name, value)`, in document order.
     pub options: Vec<(String, String)>,
 }
@@ -77,6 +92,8 @@ fn normalize(raw: RawConfig) -> Result<NormalizedConfig, String> {
     Ok(NormalizedConfig {
         enabled: raw.enabled,
         mouse_clicks: raw.mouse_clicks,
+        fullscreen_min_width: raw.fullscreen.min_width,
+        fullscreen_min_height: raw.fullscreen.min_height,
         options,
     })
 }
@@ -141,6 +158,8 @@ fn option_value(key: &str, value: toml::Value) -> Result<String, String> {
 pub fn write_protocol(config: &NormalizedConfig, mut out: impl Write) -> Result<(), String> {
     writeln!(out, "{}", config.enabled).map_err(|e| e.to_string())?;
     writeln!(out, "{}", config.mouse_clicks).map_err(|e| e.to_string())?;
+    writeln!(out, "{}", config.fullscreen_min_width).map_err(|e| e.to_string())?;
+    writeln!(out, "{}", config.fullscreen_min_height).map_err(|e| e.to_string())?;
     writeln!(out, "{}", config.options.len()).map_err(|e| e.to_string())?;
     for (name, value) in &config.options {
         writeln!(out, "{name}").map_err(|e| e.to_string())?;
@@ -170,7 +189,27 @@ mod tests {
     fn defaults_to_enabled_with_no_options() {
         let config = load_text("").unwrap();
         assert!(config.enabled);
+        assert_eq!(config.fullscreen_min_width, 0);
+        assert_eq!(config.fullscreen_min_height, 0);
         assert!(config.options.is_empty());
+    }
+
+    #[test]
+    fn parses_fullscreen_thresholds() {
+        let config = load_text("[fullscreen]\nmin_width = 180\nmin_height = 50\n").unwrap();
+        assert_eq!(config.fullscreen_min_width, 180);
+        assert_eq!(config.fullscreen_min_height, 50);
+    }
+
+    #[test]
+    fn rejects_invalid_fullscreen_thresholds() {
+        for text in [
+            "[fullscreen]\nmin_width = -1\n",
+            "[fullscreen]\nmin_height = \"50\"\n",
+            "[fullscreen]\nunknown = 1\n",
+        ] {
+            assert!(load_text(text).is_err(), "accepted {text:?}");
+        }
     }
 
     #[test]
@@ -374,7 +413,7 @@ window_status_current_format = \"#[fg=colour255,bg=colour27,bold] #I: #W #[defau
         write_protocol(&config, &mut out).unwrap();
         assert_eq!(
             String::from_utf8(out).unwrap(),
-            "false\ntrue\n2\nstatus-interval\n2\nstatus-left\n a \n"
+            "false\ntrue\n0\n0\n2\nstatus-interval\n2\nstatus-left\n a \n"
         );
     }
 
