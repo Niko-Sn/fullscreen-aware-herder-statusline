@@ -1,15 +1,19 @@
 # fullscreen-aware-herder-statusline
 
+> [!NOTE]
+> This is a fork of
+> [`iiii1224/herdr-statusline`](https://github.com/iiii1224/herdr-statusline).
+> It retains the original tmux-compatible Herdr status line while adding
+> configurable, resize-aware visibility. Its purpose is to show the status line
+> only when the terminal meets user-defined width and height thresholds—using
+> terminal size as a portable approximation of fullscreen—and return the entire
+> row to Herdr when the window is smaller.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/license/mit/)
 [![Herdr Plugin](https://img.shields.io/badge/herdr-plugin-orange.svg)](https://github.com/Niko-Sn/fullscreen-aware-herder-statusline)
 [![Platform: Linux/WSL](https://img.shields.io/badge/platform-Linux%20%2F%20WSL-lightgrey.svg)](#requirements)
 
 A tmux-compatible status line for `herdr`—easy to migrate, and even easier to customize with your coding agent.
-
-This repository is a fork of
-[`iiii1224/herdr-statusline`](https://github.com/iiii1224/herdr-statusline).
-It preserves the upstream history and adds configurable, resize-aware
-fullscreen-sized visibility.
 
 - **Bring your tmux status line with you.** Reuse familiar tmux formats, styles, and `#(...)` shell segments with minimal migration.
 - **Customize it by describing what you want.** Your coding agent can edit helper scripts and validate the live configuration for you.
